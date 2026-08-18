@@ -1,0 +1,30 @@
+name: Restore exact Git history
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: github.event.head_commit.message == 'chore: restore complete project history'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and verify bundle
+        shell: bash
+        run: |
+          cat .history/chunk_* > /tmp/history.b64
+          base64 --decode /tmp/history.b64 > /tmp/history.bundle
+          git bundle verify /tmp/history.bundle
+      - name: Restore original main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/restored
+          git clone /tmp/history.bundle /tmp/restored
+          cd /tmp/restored
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" refs/heads/main:refs/heads/main
